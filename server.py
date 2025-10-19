@@ -3,10 +3,7 @@ import ast
 import time
 import math
 import matplotlib.path as mpath
-import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
-from shapely.ops import cascaded_union
-import multiprocessing
 
 # Define the game board size and initial state
 board_size = (20, 20)
