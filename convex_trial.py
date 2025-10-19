@@ -1,7 +1,6 @@
 import matplotlib.path as mpath
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
-from shapely.ops import cascaded_union
 
 # Define the coordinates of the k points that form the convex polygon
 pegs = [16, 48, 39, 30]

@@ -1,5 +1,4 @@
 import random
-import time
 
 class PegbandPlayer1:
     def __init__(self, name, board_length, board_width, board, num_pegs, num_rubberbands, player_color):

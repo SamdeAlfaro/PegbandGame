@@ -1,5 +1,3 @@
-import random
-
 class PegbandPlayer:
     def __init__(self, name, board_length, board_width, board, num_pegs, num_rubberbands, player_color):
         self.name = "Enter your name"

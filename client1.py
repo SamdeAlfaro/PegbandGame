@@ -1,11 +1,7 @@
 import socket
-import random
 import ast
 import time
 import pegband_player1
-import pegband_player2
-import pegband_player
-import threading
 import multiprocessing
 
 # Connect to the server
