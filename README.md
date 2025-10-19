@@ -1,3 +1,11 @@
+## Pegband Game Architecture -- Sam de Alfaro
+Uses the Ozzies implementation as a base, changes were made to work with shapely 2.0 update.
+
+Please write your name in the ``pegband_player`` field ``self.name``, and only modify the ``pegband_player`` file. Quickstart instructions below.
+
+*(original README below)*
+---------------------------------------
+
 ## Pegband Game Architecture -- Ozan Aygun, Ozlem Yildiz
 
 Required packages:
