@@ -108,11 +108,11 @@ def rubberband_validity(peg1, peg2, board_size, enemy_pegs):
             else:
                 end = math.ceil(temp_x)
                 start = math.floor(x1 + shift)
-            
+
             for j in range(end - start):
                 candidate_x = (start + 0.5) + j
                 candidate_y = current_row - 0.5
-                
+
                 positions.append(int((candidate_y-0.5)*board_size[0] + (candidate_x-0.5)))
 
             temp_x = x1 + shift
@@ -132,7 +132,7 @@ def rubberband_validity(peg1, peg2, board_size, enemy_pegs):
         for j in range(end - start):
             candidate_x = (start + 0.5) + j
             candidate_y = current_row - 0.5
-            
+
             positions.append(int((candidate_y-0.5)*board_size[0] + (candidate_x-0.5)))
 
         # Check if there is any enemy pegs in between for cross move
@@ -167,10 +167,10 @@ def is_convex(polygon_points):
 def check_inside_rubberband(player_peg_coordinates, enemy_peg_coordinates, proposed_rubberband, board_size):
     points = []
     for i in range(len(proposed_rubberband)):
-        x1 = (int(proposed_rubberband[i]%board_size) + 0.5) 
+        x1 = (int(proposed_rubberband[i]%board_size) + 0.5)
         y1 = -1*(int(proposed_rubberband[i]/board_size)+1 - 0.5 - board_size)
         points.append([x1, y1])
-    x1 = int(proposed_rubberband[0]%board_size) + 0.5 
+    x1 = int(proposed_rubberband[0]%board_size) + 0.5
     y1 = -1*(int(proposed_rubberband[0]/board_size)+1 - 0.5 - board_size)
     points.append([x1, y1])
 
@@ -195,193 +195,204 @@ def check_inside_rubberband(player_peg_coordinates, enemy_peg_coordinates, propo
     for center in grid_centers:
         if path.contains_point(center):
             #if center not in points:
-            grid_centers_inside_polygon.append(center)  
-            center_locations_inside_polygon.append(int((center[1]*(-1) + board_size + 0.5 - 1)*(board_size) + (center[0] - 0.5))) 
-    
+            grid_centers_inside_polygon.append(center)
+            center_locations_inside_polygon.append(int((center[1]*(-1) + board_size + 0.5 - 1)*(board_size) + (center[0] - 0.5)))
+
     return convex_check, center_locations_inside_polygon
 
 # Create player objects and store them in a list
 players = []
-for i in range(2):
-    print(f"Waiting for Player {i + 1} to connect...")
-    player_socket, player_address = server.accept()
-    player_name = player_socket.recv(2048).decode()
-    print(player_name)
-    print(f"Player {i + 1}: {player_name} is connected.")
-    players.append(Player(player_name, player_socket, i))
 
-# Send board size and peg placement phase information to both players
-board_info_1 = f"{board_size[0]} {board_size[1]} {num_pegs} {num_rubberbands} {1}\n".encode()
-players[0].socket.send(board_info_1)
-board_info_2 = f"{board_size[0]} {board_size[1]} {num_pegs} {num_rubberbands} {2}\n".encode()
-players[1].socket.send(board_info_2)
+try:
+    for i in range(2):
+        print(f"Waiting for Player {i + 1} to connect...")
+        player_socket, player_address = server.accept()
+        player_name = player_socket.recv(2048).decode()
+        print(player_name)
+        print(f"Player {i + 1}: {player_name} is connected.")
+        players.append(Player(player_name, player_socket, i))
 
-time.sleep(0.3)
+    # Send board size and peg placement phase information to both players
+    board_info_1 = f"{board_size[0]} {board_size[1]} {num_pegs} {num_rubberbands} {1}\n".encode()
+    players[0].socket.send(board_info_1)
+    board_info_2 = f"{board_size[0]} {board_size[1]} {num_pegs} {num_rubberbands} {2}\n".encode()
+    players[1].socket.send(board_info_2)
 
-######
-# Peg placement phase 
-for round in range(num_pegs):
-    player_index = 1
-    other_player_index = 2
-    for player in players:
-        try:
-            # Send the current board with peg positions
-            player.socket.send(str(board).encode())
+    time.sleep(0.3)
+
+    ######
+    # Peg placement phase
+    for round in range(num_pegs):
+        player_index = 1
+        other_player_index = 2
+        for player in players:
+            try:
+                # Send the current board with peg positions
+                player.socket.send(str(board).encode())
+                start_time = time.time()
+                position = int(player.socket.recv(2048).decode())
+                end_time = time.time()
+                remaining_time[player_index-1] -= end_time - start_time
+                print(f"Remaining time for {player.name}: {remaining_time[player_index-1]}")
+                # Update the board with the player's peg
+                if(position >= 0 and position < board_size[0] * board_size[1]):
+                    if(board[position] == player_index):
+                        print(f"{player.name}, you have already placed a peg in this position!")
+                    elif(board[position] == other_player_index):
+                        print(f"{players[other_player_index-1].name} has a peg in this position! No peg is placed by {player.name}!")
+                    else:
+                        board[position] = player_index  # Alternates between Player 1 and Player 2
+                        player.peg_coordinates.append(position)
+                        print(f"{player.name} placed a peg at location {position}.")
+                else:
+                    print(f"Coordinate out of range! No peg is placed by {player.name}!")
+                player_index = 2
+                other_player_index = 1
+            except Exception as e:
+                print(f"Invalid coordinate! No peg is placed by {player.name}!")
+
+
+    player.socket.send(str(board).encode())
+    players[0].board = board.copy()
+    players[0].peg_board = board.copy()
+    players[1].board = board.copy()
+    players[1].peg_board = board.copy()
+
+    # Display the board
+    print("Initial board")
+    display_board(board, board_size[0], board_size[1])
+    print("-----")
+    print("Rubberband placement phase")
+    print("-----")
+    time.sleep(0.3)
+    #########
+    # Rubberband placement phase
+    for round in range(num_rubberbands):
+        player_index = 1
+        other_player = 2
+        for player in players:
+            cross_move = False
+            illegal_cross_move = False
+            illegal_move = False
+            temp_points = 0
+            temp_rubberband = []
+            player.socket.send(str(player.board).encode())
             start_time = time.time()
-            position = int(player.socket.recv(2048).decode())
+            rubberband_edges_str = player.socket.recv(2048).decode()
             end_time = time.time()
             remaining_time[player_index-1] -= end_time - start_time
-            print(f"Remaining time for {player.name}: {remaining_time[player_index-1]}")
-            # Update the board with the player's peg
-            if(position >= 0 and position < board_size[0] * board_size[1]):
-                if(board[position] == player_index):
-                    print(f"{player.name}, you have already placed a peg in this position!")
-                elif(board[position] == other_player_index):
-                    print(f"{players[other_player_index-1].name} has a peg in this position! No peg is placed by {player.name}!")
-                else:
-                    board[position] = player_index  # Alternates between Player 1 and Player 2
-                    player.peg_coordinates.append(position)
-                    print(f"{player.name} placed a peg at location {position}.")
-            else:
-                print(f"Coordinate out of range! No peg is placed by {player.name}!")
-            player_index = 2
-            other_player_index = 1
-        except Exception as e:
-            print(f"Invalid coordinate! No peg is placed by {player.name}!")
-
-
-player.socket.send(str(board).encode())
-players[0].board = board.copy()
-players[0].peg_board = board.copy()
-players[1].board = board.copy()
-players[1].peg_board = board.copy()
-
-# Display the board
-print("Initial board")
-display_board(board, board_size[0], board_size[1])
-print("-----")
-print("Rubberband placement phase")
-print("-----")
-time.sleep(0.3)
-#########
-# Rubberband placement phase 
-for round in range(num_rubberbands):
-    player_index = 1
-    other_player = 2
-    for player in players:
-        cross_move = False
-        illegal_cross_move = False
-        illegal_move = False
-        temp_points = 0
-        temp_rubberband = []
-        player.socket.send(str(player.board).encode())
-        start_time = time.time()
-        rubberband_edges_str = player.socket.recv(2048).decode()
-        end_time = time.time()
-        remaining_time[player_index-1] -= end_time - start_time
-        print(f"Rubberband has been placed. Remaining time for {player.name}: {remaining_time[player_index-1]}")
-        rubberband_edges = ast.literal_eval(rubberband_edges_str)
-        ## Rubberband validity conditions
-        proposed_rubberband = []
-        if(len(rubberband_edges) == 1):
-            proposed_rubberband = rubberband_edges
-        #If there is only a line of connection
-        elif(len(rubberband_edges) == 2):
-            proposed_rubberband, check_cross_move, bad_cross_move = rubberband_validity(rubberband_edges[0], rubberband_edges[1], board_size, players[other_player-1].peg_coordinates)
-            if(check_cross_move):
-                cross_move = True
-            if(bad_cross_move):
-                illegal_cross_move = True          
-            temp_points = len(proposed_rubberband)
-        elif(len(rubberband_edges) > 2):
-            for i in range(len(rubberband_edges) - 1):
-                temp_rubberband, check_cross_move, bad_cross_move = rubberband_validity(rubberband_edges[i], rubberband_edges[i+1], board_size, players[other_player-1].peg_coordinates)
+            print(f"Rubberband has been placed. Remaining time for {player.name}: {remaining_time[player_index-1]}")
+            rubberband_edges = ast.literal_eval(rubberband_edges_str)
+            ## Rubberband validity conditions
+            proposed_rubberband = []
+            if(len(rubberband_edges) == 1):
+                proposed_rubberband = rubberband_edges
+            #If there is only a line of connection
+            elif(len(rubberband_edges) == 2):
+                proposed_rubberband, check_cross_move, bad_cross_move = rubberband_validity(rubberband_edges[0], rubberband_edges[1], board_size, players[other_player-1].peg_coordinates)
+                if(check_cross_move):
+                    cross_move = True
+                if(bad_cross_move):
+                    illegal_cross_move = True
+                temp_points = len(proposed_rubberband)
+            elif(len(rubberband_edges) > 2):
+                for i in range(len(rubberband_edges) - 1):
+                    temp_rubberband, check_cross_move, bad_cross_move = rubberband_validity(rubberband_edges[i], rubberband_edges[i+1], board_size, players[other_player-1].peg_coordinates)
+                    if(check_cross_move):
+                        cross_move = True
+                    if(bad_cross_move):
+                        illegal_cross_move = True
+                    for j in range(len(temp_rubberband)):
+                        proposed_rubberband.append(temp_rubberband[j])
+                temp_rubberband, check_cross_move, bad_cross_move = rubberband_validity(rubberband_edges[len(rubberband_edges)-1], rubberband_edges[0], board_size, players[other_player-1].peg_coordinates)
                 if(check_cross_move):
                     cross_move = True
                 if(bad_cross_move):
                     illegal_cross_move = True
                 for j in range(len(temp_rubberband)):
                     proposed_rubberband.append(temp_rubberband[j])
-            temp_rubberband, check_cross_move, bad_cross_move = rubberband_validity(rubberband_edges[len(rubberband_edges)-1], rubberband_edges[0], board_size, players[other_player-1].peg_coordinates)
-            if(check_cross_move):
-                cross_move = True
-            if(bad_cross_move):
-                illegal_cross_move = True
-            for j in range(len(temp_rubberband)):
-                proposed_rubberband.append(temp_rubberband[j])
 
-            proposed_rubberband = list(set(proposed_rubberband))
+                proposed_rubberband = list(set(proposed_rubberband))
 
-            convexity_check, pegs_inside = check_inside_rubberband(player.peg_coordinates, players[other_player-1].peg_coordinates, rubberband_edges, board_size[0])
+                convexity_check, pegs_inside = check_inside_rubberband(player.peg_coordinates, players[other_player-1].peg_coordinates, rubberband_edges, board_size[0])
 
-            #print(f"Centers inside the polygon: {pegs_inside}")
-            #print(f"Enemy peg coordinates: {players[other_player-1].peg_coordinates}")
+                #print(f"Centers inside the polygon: {pegs_inside}")
+                #print(f"Enemy peg coordinates: {players[other_player-1].peg_coordinates}")
 
-            if(not convexity_check):
-                illegal_move = True
-                print(f"The polygon is not convex! No rubberband placed by {player.name}")
-            for i in range(len(pegs_inside)):
-                if(pegs_inside[i] in players[other_player-1].peg_coordinates):
-                    print("There is an enemy peg inside the polygon!")
+                if(not convexity_check):
                     illegal_move = True
-                else:
-                    if(pegs_inside[i] not in proposed_rubberband):
-                        proposed_rubberband.append(pegs_inside[i])
-                        temp_points += 1                        
+                    print(f"The polygon is not convex! No rubberband placed by {player.name}")
+                for i in range(len(pegs_inside)):
+                    if(pegs_inside[i] in players[other_player-1].peg_coordinates):
+                        print("There is an enemy peg inside the polygon!")
+                        illegal_move = True
+                    else:
+                        if(pegs_inside[i] not in proposed_rubberband):
+                            proposed_rubberband.append(pegs_inside[i])
+                            temp_points += 1
 
 
-            proposed_rubberband = list(set(proposed_rubberband))
-        temp_points = len(proposed_rubberband)
-        
-        #print(player.rubberband_coordinates)
-        #print(proposed_rubberband)
+                proposed_rubberband = list(set(proposed_rubberband))
+            temp_points = len(proposed_rubberband)
 
-        for i in range(len(rubberband_edges)):
-            if(rubberband_edges[i] not in player.peg_coordinates):
-                illegal_move = True
-                print("Given coordinates do not include your peg!")
+            #print(player.rubberband_coordinates)
+            #print(proposed_rubberband)
 
-        for i in range(len(proposed_rubberband)):
-            if(proposed_rubberband[i] in players[other_player-1].peg_coordinates):
-                if((cross_move and illegal_cross_move) or not cross_move):
-                    print("Rubberband cannot go from an enemy peg!")
+            for i in range(len(rubberband_edges)):
+                if(rubberband_edges[i] not in player.peg_coordinates):
                     illegal_move = True
-                else:
+                    print("Given coordinates do not include your peg!")
+
+            for i in range(len(proposed_rubberband)):
+                if(proposed_rubberband[i] in players[other_player-1].peg_coordinates):
+                    if((cross_move and illegal_cross_move) or not cross_move):
+                        print("Rubberband cannot go from an enemy peg!")
+                        illegal_move = True
+                    else:
+                        temp_points -= 1
+                elif(proposed_rubberband[i] in player.rubberband_coordinates):
                     temp_points -= 1
-            elif(proposed_rubberband[i] in player.rubberband_coordinates):
-                temp_points -= 1
+                else:
+                    temp_rubberband.append(proposed_rubberband[i])
+
+            if(illegal_move):
+                temp_points = 0
             else:
-                temp_rubberband.append(proposed_rubberband[i])
-        
-        if(illegal_move):
-            temp_points = 0
-        else:
-            for i in range(len(temp_rubberband)):
-                player.rubberband_coordinates.append(temp_rubberband[i])
-                if((temp_rubberband[i] not in player.peg_coordinates) and temp_rubberband[i] not in players[other_player-1].peg_coordinates):
-                    player.board[temp_rubberband[i]] = player_index+2  # Alternates between Player 1 and Player 2 --- #3: g, 4:b\
-            player.point += temp_points
+                for i in range(len(temp_rubberband)):
+                    player.rubberband_coordinates.append(temp_rubberband[i])
+                    if((temp_rubberband[i] not in player.peg_coordinates) and temp_rubberband[i] not in players[other_player-1].peg_coordinates):
+                        player.board[temp_rubberband[i]] = player_index+2  # Alternates between Player 1 and Player 2 --- #3: g, 4:b\
+                player.point += temp_points
 
-        # Switch players after sweeping through all rubberband squares.
-        player_index = 2
-        other_player = 1
+            # Switch players after sweeping through all rubberband squares.
+            player_index = 2
+            other_player = 1
 
-print("-----")
-display_board(players[0].board, board_size[0], board_size[1])
-print("-----")
-display_board(players[1].board, board_size[0], board_size[1])
-print("-----")
-# Calculate and announce the winner
-print(f"{players[0].name}: {players[0].point} points, {players[1].name}: {players[1].point} points")
-if(players[0].point > players[1].point):
-    print(f"{players[0].name} wins!")
-elif(players[0].point < players[1].point):
-    print(f"{players[1].name} wins!")
-else:
-    print(f"It is a tie! {players[0].name} started first, {players[0].name} wins!")
+    print("-----")
+    display_board(players[0].board, board_size[0], board_size[1])
+    print("-----")
+    display_board(players[1].board, board_size[0], board_size[1])
+    print("-----")
+    # Calculate and announce the winner
+    print(f"{players[0].name}: {players[0].point} points, {players[1].name}: {players[1].point} points")
 
-# Close the server and player sockets
+    # Determine winner
+    if(players[0].point > players[1].point):
+        winner_msg = f"{players[0].name} wins!"
+    elif(players[0].point < players[1].point):
+        winner_msg = f"{players[1].name} wins!"
+    else:
+        winner_msg = f"It is a tie! {players[0].name} started first, {players[0].name} wins!"
 
-server.close()
-for player in players:
-    player.socket.close()
+    print(winner_msg)
+
+finally:
+    # Clean up all socket connections
+    print("Closing connections...")
+
+    # Close server socket
+    try:
+        server.close()
+        print("Server closed successfully.")
+    except Exception as e:
+        print(f"Error closing server socket: {e}")

@@ -1,6 +1,8 @@
 import socket
 import ast
 import pegband_player
+import multiprocessing
+import time
 
 def receive_full_message(sock, buffer_size=4096):
     """Receive a complete message from the socket."""
@@ -26,9 +28,11 @@ player = pegband_player.PegbandPlayer("Enter your name", 0, 0, [], 0, 0, 0)
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_socket.connect((server_ip, server_port))
 client_socket.send(str(player.name).encode())
+global remaining_time
+remaining_time = 120
 
 # Receive board size and peg placement phase information
-board_info = client_socket.recv(1024).decode().strip().split()
+board_info = client_socket.recv(2048).decode().strip().split()
 
 #Information for client
 board_length = int(board_info[0])
@@ -36,6 +40,28 @@ board_width = int(board_info[1])
 num_pegs = int(board_info[2])
 num_rubberbands = int(board_info[3])
 board = []
+
+def run_with_timeout(func, player):
+
+    def wrapper():
+        #nonlocal remaining_time
+        start_time = time.time()
+        func()
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        remaining_time -= elapsed_time
+
+    p = multiprocessing.Process(target=wrapper)
+    p.start()
+    p.join(remaining_time)
+    if p.is_alive():
+        p.terminate()
+        print(f"Time limit has been exceeded by {player.name}!")
+        # Close the client socket
+        client_socket.close()
+    else:
+        print(f"{player.name}, Remaining time: {remaining_time} seconds.")
+
 
 #Information for players
 player.board_length = int(board_info[0])
@@ -57,9 +83,11 @@ for round in range(num_pegs):
 
 for round in range(num_rubberbands):
     # Receive the current board with peg and rubberband positions
-    board_str = receive_full_message(client_socket)
+    board_str = client_socket.recv(2048).decode()
     player.board = ast.literal_eval(board_str)
+    start_time = time.time()
     rubberband_positions = player.place_rubberbands()
+    end_time = time.time()
     client_socket.send(str(rubberband_positions).encode())
 
 # Receive final game results
